@@ -1,5 +1,6 @@
 import QtQuick 2.2
 import QtQuick.Layouts 1.1
+import org.kde.plasma.core 2.0 as PlasmaCore
 import org.kde.plasma.plasmoid 2.0
 import org.kde.plasma.components 2.0 as PlasmaComponents
 
@@ -60,53 +61,55 @@ Item {
             }
         }
 
+        PlasmaCore.DataSource {
+            id: keystateSource
+            engine: "keystate"
+            connectedSources: ["Alt"]
+        }
+
         Repeater {
             id: buttonRepeater
-            model: null
+            model: appMenuModel
 
-            MouseArea {
-                id: appmenuButton
-
-                hoverEnabled: true
-                visible: appmenuButtonTitle.text !== ""
-
+            PlasmaComponents.ToolButton {
                 readonly property int buttonIndex: index
 
-                property bool menuOpened: plasmoid.nativeInterface.currentIndex === index
+                Layout.preferredWidth: minimumWidth + units.smallSpacing * 2
+                Layout.preferredHeight: appmenuFillHeight ? appmenu.height : minimumHeight
+                /*Layout.fillWidth: root.vertical
+                Layout.fillHeight: !root.vertical*/
 
-                Layout.preferredWidth: appmenuButtonBackground.width
-                Layout.preferredHeight: appmenuButtonBackground.height
-
-                Rectangle {
-                    id: appmenuButtonBackground
-                    border.color: 'transparent'
-                    width: appmenuButtonTitle.implicitWidth + units.smallSpacing * 3
-                    height: appmenuFillHeight ? appmenu.height : appmenuButtonTitle.implicitHeight + units.smallSpacing
-                    color: menuOpened ? theme.highlightColor : 'transparent'
-                    radius: units.smallSpacing / 2
+                font.weight: appmenuFontBold ? Font.Bold : theme.defaultFont.weight
+                
+                text: {
+                    var text = activeMenu
+                    
+                    var alt = keystateSource.data.Alt;
+                    if ( alt.Pressed ) {
+                        return text
+                    }
+                    else {
+                        return text.replace('&', '')
+                    }
                 }
 
-                PlasmaComponents.Label {
-                    id: appmenuButtonTitle
-                    anchors.top: appmenuButtonBackground.top
-                    anchors.bottom: appmenuButtonBackground.bottom
-                    verticalAlignment: Text.AlignVCenter
-                    anchors.horizontalCenter: appmenuButtonBackground.horizontalCenter
-                    font.pixelSize: fontPixelSize * plasmoid.configuration.appmenuButtonTextSizeScale
-                    text: activeMenu.replace('&', '')
-                    font.weight: appmenuFontBold ? Font.Bold : theme.defaultFont.weight
-                }
-
+                //}
+                // fake highlighted
+                checkable: plasmoid.nativeInterface.currentIndex === index
+                checked: checkable
+                visible: text !== ""
                 onClicked: {
                     plasmoid.nativeInterface.trigger(this, index)
+
+                    checked = Qt.binding(function() {
+                        return plasmoid.nativeInterface.currentIndex === index;
+                    });
                 }
 
-                onEntered: {
-                    appmenuButtonBackground.border.color = theme.highlightColor
-                }
-
-                onExited: {
-                    appmenuButtonBackground.border.color = 'transparent'
+                // QMenu opens on press, so we'll replicate that here
+                MouseArea {
+                    anchors.fill: parent
+                    onPressed: parent.clicked()
                 }
             }
         }
@@ -136,6 +139,7 @@ Item {
                  import org.kde.private.activeWindowControl 1.0 as ActiveWindowControlPrivate;\
                  ActiveWindowControlPrivate.AppMenuModel {\
                      id: appMenuModel;\
+                     onRequestActivateIndex: plasmoid.nativeInterface.requestActivateIndex(index);\
                      Component.onCompleted: {\
                          plasmoid.nativeInterface.model = appMenuModel\
                      }\
@@ -173,5 +177,4 @@ Item {
             plasmoid.nativeInterface.enabled = appmenuEnabled
         }
     }
-
 }
